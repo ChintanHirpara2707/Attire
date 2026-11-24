@@ -28,11 +28,17 @@ export default function RootLayout() {
     Inter_900Black,
   });
   const [session, setSession] = useState<SessionState>('loading');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const connect = useCallback(() => {
     ensureSession()
       .then(() => setSession('ready'))
-      .catch(() => setSession('error'));
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn('Startup sign-in failed:', msg);
+        setErrorMessage(msg);
+        setSession('error');
+      });
   }, []);
 
   useEffect(connect, [connect]);
@@ -55,6 +61,11 @@ export default function RootLayout() {
     return (
       <View style={styles.center}>
         <Text style={styles.message}>Could not connect. Check your internet and try again.</Text>
+        {errorMessage && (
+          <Text selectable style={styles.detail}>
+            {errorMessage}
+          </Text>
+        )}
         <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
           <Text style={styles.retryText}>Try again</Text>
         </Pressable>
@@ -90,6 +101,12 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontFamily: fonts.medium,
     fontSize: fontSizes.md,
+    textAlign: 'center',
+  },
+  detail: {
+    color: colors.inkSoft,
+    fontFamily: fonts.regular,
+    fontSize: fontSizes.xs,
     textAlign: 'center',
   },
   retry: {
