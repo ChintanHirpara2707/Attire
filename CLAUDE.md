@@ -29,3 +29,5 @@ npx expo start · npx supabase db push · npx supabase functions deploy remove-b
 
 ## Status
 (update this list as features are completed)
+- [x] Scaffold: Expo Router in src/app, theme tokens (src/theme/tokens.ts), Inter font, Glass component
+- [x] Supabase foundation: 0001_init.sql (tables, RLS, private "clothes" bucket), src/services/supabase.ts (client + ensureSession)
