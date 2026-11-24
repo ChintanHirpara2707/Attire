@@ -13,7 +13,7 @@ React Native (Expo, TypeScript, Expo Router), Supabase (Auth anonymous, Postgres
 - Do one feature at a time. Reply with a short summary of changed files only.
 
 ## Structure
-app/ (screens) · src/services · src/store · src/utils · src/components · supabase/migrations · supabase/functions
+src/app/ (screens, Expo Router) · src/theme · src/services · src/store · src/utils · src/components · supabase/migrations · supabase/functions
 
 ## Features
 1. Profiles (name only, optional PIN, separate wardrobe per profile)
