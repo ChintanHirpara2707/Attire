@@ -1,12 +1,17 @@
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
+import { Button } from '../../../components/Button';
+import { FloatingButton, useFloatingButtonSpace } from '../../../components/FloatingButton';
 import { Glass } from '../../../components/Glass';
+import { PressableScale } from '../../../components/PressableScale';
+import { Screen } from '../../../components/Screen';
 import { getSignedUrls, listItems, type Item } from '../../../services/items';
 import { useProfileStore } from '../../../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../../../theme/tokens';
+import { enter } from '../../../theme/motion';
+import { colors, fonts, fontSizes, radius, spacing, textStyles } from '../../../theme/tokens';
 
 const COLUMNS = 3;
 
@@ -17,6 +22,7 @@ export default function ClosetScreen() {
   const profile = useProfileStore((s) => s.profiles.find((p) => p.id === id));
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
   const allowed = !!profile && activeProfileId === id;
+  const bottomSpace = useFloatingButtonSpace();
 
   const [closet, setCloset] = useState<Closet | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +36,10 @@ export default function ClosetScreen() {
       (async () => {
         try {
           const items = await listItems(id);
-          const paths = items.flatMap((i) => { const p = i.image_path ?? i.original_path; return p ? [p] : []; });
+          const paths = items.flatMap((i) => {
+            const p = i.image_path ?? i.original_path;
+            return p ? [p] : [];
+          });
           const urls = await getSignedUrls(paths);
           if (active) {
             setCloset({ items, urls });
@@ -50,194 +59,140 @@ export default function ClosetScreen() {
   if (!allowed) return <Redirect href="/" />;
 
   return (
-    <SafeAreaView style={styles.root}>
+    <Screen
+      edges={['top', 'left', 'right']}
+      overlay={
+        <FloatingButton
+          label="Add clothes"
+          onPress={() => router.push(`/profile/${id}/add-item`)}
+        />
+      }>
       <FlatList
         data={closet?.items ?? []}
         keyExtractor={(item) => item.id}
         numColumns={COLUMNS}
         columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottomSpace }]}
         ListHeaderComponent={
           <View style={styles.header}>
             <Pressable
               accessibilityRole="button"
               onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
               hitSlop={8}>
-              <Text style={styles.back}>‹ Profiles</Text>
+              <Text style={textStyles.back}>‹ Profiles</Text>
             </Pressable>
-            <View style={styles.titleRow}>
-              <View style={styles.titleText}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {profile.name}
-                </Text>
-                <Text style={styles.subtitle}>Closet</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add clothes"
-                onPress={() => router.push(`/profile/${id}/add-item`)}
-                style={styles.add}>
-                <Text style={styles.addText}>+ Add</Text>
-              </Pressable>
-            </View>
-            <View style={styles.navRow}>
-              <Pressable
-                accessibilityRole="button"
+            <Animated.View entering={enter(0)} style={styles.titleBlock}>
+              <Text style={textStyles.title} numberOfLines={1} accessibilityRole="header">
+                {profile.name}
+              </Text>
+              <Text style={textStyles.subtitle}>
+                {closet ? `${closet.items.length} piece${closet.items.length === 1 ? '' : 's'} in the closet` : 'Closet'}
+              </Text>
+            </Animated.View>
+            <Animated.View entering={enter(1)} style={styles.navRow}>
+              <Button
+                label="Build outfit"
+                size="sm"
                 onPress={() => router.push(`/profile/${id}/builder`)}
-                style={styles.navButton}>
-                <Text style={styles.navText}>Build outfit</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+                style={styles.flex}
+              />
+              <Button
+                label="Outfits"
+                variant="secondary"
+                size="sm"
                 onPress={() => router.push(`/profile/${id}/outfits`)}
-                style={styles.navButton}>
-                <Text style={styles.navText}>Outfits</Text>
-              </Pressable>
-            </View>
+                style={styles.flex}
+              />
+            </Animated.View>
           </View>
         }
         ListEmptyComponent={
           error ? (
-            <Text style={styles.error}>{error}</Text>
+            <Text style={textStyles.error}>{error}</Text>
           ) : !closet ? (
-            <ActivityIndicator color={colors.ink} />
+            <ActivityIndicator color={colors.accent} />
           ) : (
-            <Glass>
-              <View style={styles.emptyBody}>
-                <Text style={styles.emptyTitle}>Your closet is empty</Text>
-                <Text style={styles.emptyText}>Tap “+ Add” to photograph your first piece.</Text>
-              </View>
-            </Glass>
+            <Animated.View entering={enter(2)}>
+              <Glass>
+                <View style={styles.emptyBody}>
+                  <Text style={textStyles.heading}>Your closet is empty</Text>
+                  <Text style={textStyles.muted}>Tap “Add clothes” to photograph your first piece.</Text>
+                </View>
+              </Glass>
+            </Animated.View>
           )
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const path = item.image_path ?? item.original_path;
           const url = path ? closet?.urls[path] : undefined;
           return (
-            <Glass style={styles.cell}>
-              <Pressable
+            <Animated.View entering={enter(index + 2)} style={styles.cellWrap}>
+              <PressableScale
                 accessibilityRole="button"
                 accessibilityLabel={`Edit ${item.name || 'clothing item'}`}
                 onPress={() => router.push(`/profile/${id}/item/${item.id}`)}>
-                {url ? <Image source={{ uri: url }} style={styles.image} /> : <View style={styles.image} />}
-                {item.name ? (
-                  <Text style={styles.cellName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                ) : null}
-              </Pressable>
-            </Glass>
+                <Glass style={styles.cell}>
+                  {url ? (
+                    <Image source={{ uri: url }} style={styles.image} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.image} />
+                  )}
+                  {item.name || item.color_hex ? (
+                    <View style={styles.cellFooter}>
+                      {item.color_hex ? (
+                        <View style={[styles.dot, { backgroundColor: item.color_hex }]} />
+                      ) : null}
+                      <Text style={styles.cellName} numberOfLines={1}>
+                        {item.name || item.color_name || ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Glass>
+              </PressableScale>
+            </Animated.View>
           );
         }}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  flex: { flex: 1 },
   list: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl * 2,
-    gap: spacing.md,
-  },
-  gridRow: {
-    gap: spacing.md,
-  },
-  header: {
-    gap: spacing.xl,
-    marginBottom: spacing.sm,
-  },
-  back: {
-    marginTop: spacing.md,
-    color: colors.inkSoft,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.md,
-  },
-  titleText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  title: {
-    color: colors.ink,
-    fontFamily: fonts.black,
-    fontSize: 40,
-    letterSpacing: -1.5,
-  },
-  subtitle: {
-    color: colors.inkSoft,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.md,
-  },
-  add: {
-    height: 42,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-  },
-  addText: {
-    color: colors.white,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
-  },
-  navRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  navButton: {
-    flex: 1,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.pill,
-  },
-  navText: {
-    color: colors.ink,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
-  },
-  cell: {
-    flex: 1 / COLUMNS,
-    borderRadius: radius.thumb,
-  },
-  image: {
     width: '100%',
-    aspectRatio: 3 / 4,
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
   },
-  cellName: {
+  gridRow: { gap: spacing.md },
+  header: { gap: spacing.lg, marginBottom: spacing.sm, marginTop: spacing.md },
+  titleBlock: { gap: spacing.xs },
+  navRow: { flexDirection: 'row', gap: spacing.sm },
+  // Each grid cell takes a third of the row (fixed even when the last row is short).
+  cellWrap: { flex: 1 / COLUMNS },
+  cell: { borderRadius: radius.thumb },
+  image: { width: '100%', aspectRatio: 3 / 4 },
+  cellFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.outline,
+  },
+  cellName: {
+    flex: 1,
     color: colors.ink,
     fontFamily: fonts.medium,
     fontSize: fontSizes.xs,
   },
-  error: {
-    color: colors.danger,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.sm,
-  },
-  emptyBody: {
-    padding: spacing.xl,
-    gap: spacing.xs,
-  },
-  emptyTitle: {
-    color: colors.ink,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.md,
-  },
-  emptyText: {
-    color: colors.inkSoft,
-    fontFamily: fonts.regular,
-    fontSize: fontSizes.sm,
-  },
+  emptyBody: { padding: spacing.xl, gap: spacing.xs },
 });

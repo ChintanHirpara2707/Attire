@@ -113,6 +113,35 @@ export const motion = {
   staggerMs: 70,
 } as const;
 
+// Shared text styles so every screen reads the same.
+export const textStyles = {
+  // Big serif page title.
+  title: { color: colors.ink, fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.5 },
+  // Serif section/card heading.
+  heading: { color: colors.ink, fontFamily: fonts.display, fontSize: fontSizes.lg },
+  // Italic serif subtitle.
+  subtitle: { color: colors.inkSoft, fontFamily: fonts.displayItalic, fontSize: fontSizes.md },
+  // Small caps label above fields.
+  label: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: fontSizes.label, letterSpacing: 1.4 },
+  body: { color: colors.ink, fontFamily: fonts.medium, fontSize: fontSizes.md },
+  muted: { color: colors.inkSoft, fontFamily: fonts.medium, fontSize: fontSizes.sm },
+  back: { color: colors.inkSoft, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSizes.sm },
+} as const;
+
+// Frosted text-input look used by forms.
+export const input = {
+  height: 52,
+  borderRadius: radius.thumb,
+  paddingHorizontal: spacing.md,
+  backgroundColor: colors.pill,
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.9)',
+  color: colors.ink,
+  fontFamily: fonts.medium,
+  fontSize: fontSizes.md,
+} as const;
+
 // Spring presets for react-native-reanimated's withSpring.
 export const springs = {
   // Press feedback: quick and slightly bouncy.

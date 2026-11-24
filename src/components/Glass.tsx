@@ -1,8 +1,9 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ComponentRef, ReactNode, RefObject } from 'react';
+import { useContext, type ComponentRef, type ReactNode, type RefObject } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { BackdropContext } from './Screen';
 import { colors, glass, radius } from '../theme/tokens';
 
 type Props = {
@@ -14,7 +15,10 @@ type Props = {
 
 // Soft frosted card: blur + warm tint + a top-down inner highlight and a
 // hairline light edge, with a plum-tinted shadow.
-export function Glass({ children, style, blurTarget }: Props) {
+export function Glass({ children, style, blurTarget: explicitTarget }: Props) {
+  // Inside <Screen>, blur its aurora by default.
+  const screenBackdrop = useContext(BackdropContext);
+  const blurTarget = explicitTarget ?? screenBackdrop ?? undefined;
   return (
     <View style={[styles.shadow, style]}>
       <View style={[StyleSheet.absoluteFill, styles.clip]} pointerEvents="none">

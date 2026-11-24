@@ -1,14 +1,18 @@
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
+import { FloatingButton, useFloatingButtonSpace } from '../../../components/FloatingButton';
 import { Glass } from '../../../components/Glass';
+import { PressableScale } from '../../../components/PressableScale';
 import { ProfilePrompt } from '../../../components/ProfilePrompt';
+import { Screen } from '../../../components/Screen';
 import { getSignedUrls, type Item } from '../../../services/items';
 import { deleteOutfit, listOutfits, toggleFavorite, type OutfitWithItems } from '../../../services/outfits';
 import { useProfileStore } from '../../../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../../../theme/tokens';
+import { enter } from '../../../theme/motion';
+import { colors, fonts, fontSizes, radius, spacing, textStyles } from '../../../theme/tokens';
 
 type Loaded = { outfits: OutfitWithItems[]; urls: Record<string, string> };
 
@@ -18,6 +22,7 @@ export default function OutfitsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const activeProfileId = useProfileStore((s) => s.activeProfileId);
   const allowed = activeProfileId === id;
+  const bottomSpace = useFloatingButtonSpace();
 
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,73 +79,78 @@ export default function OutfitsScreen() {
     }
   };
 
+
   return (
-    <SafeAreaView style={styles.root}>
+    <Screen
+      edges={['top', 'left', 'right']}
+      overlay={<FloatingButton label="Build outfit" onPress={() => router.push(`/profile/${id}/builder`)} />}>
       <FlatList
         data={loaded?.outfits ?? []}
         keyExtractor={(o) => o.id}
         numColumns={2}
         columnWrapperStyle={styles.gridRow}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: bottomSpace }]}
         ListHeaderComponent={
           <View style={styles.header}>
             <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8}>
-              <Text style={styles.back}>‹ Back</Text>
+              <Text style={textStyles.back}>‹ Closet</Text>
             </Pressable>
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>Outfits</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push(`/profile/${id}/builder`)}
-                style={styles.add}>
-                <Text style={styles.addText}>+ Build</Text>
-              </Pressable>
-            </View>
-            {error && loaded && <Text style={styles.error}>{error}</Text>}
+            <Animated.View entering={enter(0)} style={styles.headingBlock}>
+              <Text style={textStyles.title} accessibilityRole="header">
+                Outfits
+              </Text>
+              <Text style={textStyles.subtitle}>Your saved looks, favourites first.</Text>
+            </Animated.View>
+            {error && loaded && <Text style={textStyles.error}>{error}</Text>}
           </View>
         }
         ListEmptyComponent={
           !loaded ? (
             error ? (
-              <Text style={styles.error}>{error}</Text>
+              <Text style={textStyles.error}>{error}</Text>
             ) : (
-              <ActivityIndicator color={colors.ink} />
+              <ActivityIndicator color={colors.accent} />
             )
           ) : (
-            <Glass>
-              <View style={styles.emptyBody}>
-                <Text style={styles.emptyTitle}>No outfits yet</Text>
-                <Text style={styles.muted}>Build one by hand or tap Suggest in the builder.</Text>
-              </View>
-            </Glass>
+            <Animated.View entering={enter(1)}>
+              <Glass>
+                <View style={styles.emptyBody}>
+                  <Text style={textStyles.heading}>No outfits yet</Text>
+                  <Text style={textStyles.muted}>Build one by hand or tap Suggest in the builder.</Text>
+                </View>
+              </Glass>
+            </Animated.View>
           )
         }
-        renderItem={({ item: outfit }) => (
-          <Glass style={styles.card}>
-            <Collage items={outfit.items} urls={loaded?.urls ?? {}} />
-            <View style={styles.cardFooter}>
-              <Text style={styles.name} numberOfLines={1}>
-                {outfit.name || 'Outfit'}
-              </Text>
-              <View style={styles.actions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={outfit.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                  accessibilityState={{ selected: outfit.favorite }}
-                  onPress={() => favorite(outfit)}
-                  hitSlop={8}>
-                  <Text style={[styles.star, outfit.favorite && styles.starOn]}>{outfit.favorite ? '★' : '☆'}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Delete ${outfit.name || 'outfit'}`}
-                  onPress={() => setToDelete(outfit)}
-                  hitSlop={8}>
-                  <Text style={styles.delete}>Delete</Text>
-                </Pressable>
+        renderItem={({ item: outfit, index }) => (
+          <Animated.View entering={enter(index + 1)} style={styles.cellWrap}>
+            <Glass>
+              <Collage items={outfit.items} urls={loaded?.urls ?? {}} />
+              <View style={styles.cardFooter}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {outfit.name || 'Outfit'}
+                </Text>
+                <View style={styles.actions}>
+                  <PressableScale
+                    accessibilityRole="button"
+                    accessibilityLabel={outfit.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                    accessibilityState={{ selected: outfit.favorite }}
+                    onPress={() => favorite(outfit)}
+                    pressedScale={0.8}
+                    hitSlop={8}>
+                    <Text style={[styles.star, outfit.favorite && styles.starOn]}>{outfit.favorite ? '★' : '☆'}</Text>
+                  </PressableScale>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${outfit.name || 'outfit'}`}
+                    onPress={() => setToDelete(outfit)}
+                    hitSlop={8}>
+                    <Text style={styles.delete}>Delete</Text>
+                  </Pressable>
+                </View>
               </View>
-            </View>
-          </Glass>
+            </Glass>
+          </Animated.View>
         )}
       />
       <ProfilePrompt
@@ -153,7 +163,7 @@ export default function OutfitsScreen() {
         onConfirm={remove}
         onCancel={() => setToDelete(null)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -167,7 +177,7 @@ function Collage({ items, urls }: { items: Item[]; urls: Record<string, string> 
         const url = p ? urls[p] : undefined;
         return (
           <View key={i.id} style={[styles.tile, shown.length === 1 && styles.tileFull]}>
-            {url ? <Image source={{ uri: url }} style={styles.tileImage} /> : null}
+            {url ? <Image source={{ uri: url }} style={styles.tileImage} /> : <View style={styles.tileEmpty} />}
           </View>
         );
       })}
@@ -176,34 +186,27 @@ function Collage({ items, urls }: { items: Item[]; urls: Record<string, string> 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.md },
-  gridRow: { gap: spacing.md },
-  header: { gap: spacing.xl, marginBottom: spacing.sm },
-  back: { marginTop: spacing.md, color: colors.inkSoft, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: colors.ink, fontFamily: fonts.black, fontSize: 40, letterSpacing: -1.5 },
-  add: {
-    height: 42,
-    justifyContent: 'center',
+  list: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
+    gap: spacing.md,
   },
-  addText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
-  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSizes.sm },
-  muted: { color: colors.inkSoft, fontFamily: fonts.regular, fontSize: fontSizes.sm },
+  gridRow: { gap: spacing.md },
+  header: { gap: spacing.lg, marginTop: spacing.md, marginBottom: spacing.sm },
+  headingBlock: { gap: spacing.xs },
   emptyBody: { padding: spacing.xl, gap: spacing.xs },
-  emptyTitle: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.md },
-  card: { flex: 1 / 2 },
-  collage: { flexDirection: 'row', flexWrap: 'wrap', aspectRatio: 1 },
-  tile: { width: '50%', height: '50%', padding: 1 },
+  cellWrap: { flex: 1 / 2 },
+  collage: { flexDirection: 'row', flexWrap: 'wrap', aspectRatio: 1, padding: 4 },
+  tile: { width: '50%', height: '50%', padding: 2 },
   tileFull: { width: '100%', height: '100%' },
   tileImage: { flex: 1, borderRadius: radius.thumb },
-  cardFooter: { padding: spacing.md, gap: spacing.xs },
-  name: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  tileEmpty: { flex: 1, borderRadius: radius.thumb, backgroundColor: colors.thumb },
+  cardFooter: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, paddingTop: spacing.xs, gap: spacing.xs },
+  name: { color: colors.ink, fontFamily: fonts.display, fontSize: fontSizes.md },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  star: { color: colors.inkSoft, fontSize: 22 },
-  starOn: { color: colors.ink },
+  star: { color: colors.inkSoft, fontSize: 24 },
+  starOn: { color: colors.accent },
   delete: { color: colors.danger, fontFamily: fonts.semibold, fontSize: fontSizes.xs },
 });

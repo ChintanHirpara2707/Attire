@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -12,10 +13,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
+import { Button } from '../../../../components/Button';
 import { Glass } from '../../../../components/Glass';
+import { PressableScale } from '../../../../components/PressableScale';
 import { ProfilePrompt } from '../../../../components/ProfilePrompt';
+import { Screen } from '../../../../components/Screen';
 import {
   CATEGORIES,
   SEASONS,
@@ -32,8 +36,10 @@ import {
   type Season,
 } from '../../../../services/items';
 import { useProfileStore } from '../../../../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../../../../theme/tokens';
+import { enter } from '../../../../theme/motion';
+import { colors, fonts, fontSizes, gradients, input, radius, spacing, textStyles } from '../../../../theme/tokens';
 import { hexToColorName } from '../../../../utils/colorName';
+
 
 // Common clothing colors for the manual picker.
 const SWATCHES = [
@@ -166,142 +172,149 @@ export default function ItemScreen() {
     }
   };
 
+
   if (!loaded) {
     return (
-      <SafeAreaView style={[styles.root, styles.center]}>
-        {loadError ? <Text style={styles.error}>{loadError}</Text> : <ActivityIndicator color={colors.ink} />}
-      </SafeAreaView>
+      <Screen style={styles.center}>
+        {loadError ? <Text style={textStyles.error}>{loadError}</Text> : <ActivityIndicator color={colors.accent} />}
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.back}>‹ Closet</Text>
+            <Text style={textStyles.back}>‹ Closet</Text>
           </Pressable>
 
-          <Glass style={styles.photo}>
-            {loaded.photoUrl ? (
-              <Image
-                source={{ uri: loaded.photoUrl }}
-                style={styles.image}
-                resizeMode="contain"
-                accessibilityLabel={name || 'Clothing item'}
-              />
-            ) : null}
-          </Glass>
+          <Animated.View entering={enter(0)}>
+            <Glass style={styles.photo}>
+              {loaded.photoUrl ? (
+                <Image
+                  source={{ uri: loaded.photoUrl }}
+                  style={styles.image}
+                  resizeMode="contain"
+                  accessibilityLabel={name || 'Clothing item'}
+                />
+              ) : null}
+            </Glass>
+          </Animated.View>
           {loaded.item.original_path && (
-            <Pressable
-              accessibilityRole="button"
-              onPress={toggleBackground}
-              disabled={bgBusy || busy}
-              style={[styles.bgButton, (bgBusy || busy) && styles.disabled]}>
-              {bgBusy ? (
-                <ActivityIndicator color={colors.ink} />
-              ) : (
-                <Text style={styles.bgButtonText}>
-                  {loaded.item.image_path ? 'Restore original' : 'Remove background'}
-                </Text>
-              )}
-            </Pressable>
+            <Animated.View entering={enter(1)}>
+              <Button
+                label={loaded.item.image_path ? 'Restore original' : 'Remove background'}
+                variant="secondary"
+                size="sm"
+                onPress={toggleBackground}
+                loading={bgBusy}
+                disabled={busy}
+              />
+            </Animated.View>
           )}
 
-          <View style={styles.field}>
-            <Text style={styles.label}>NAME</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. White tee"
-              placeholderTextColor={colors.inkSoft}
-              maxLength={60}
-              accessibilityLabel="Name"
-              style={styles.input}
-            />
-          </View>
+          <Animated.View entering={enter(2)}>
+            <Glass style={styles.card}>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>NAME</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. White tee"
+                  placeholderTextColor={colors.inkSoft}
+                  maxLength={60}
+                  accessibilityLabel="Name"
+                  style={input}
+                />
+              </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>CATEGORY</Text>
-            <View style={styles.chips}>
-              {CATEGORIES.map((c) => (
-                <Chip key={c} text={label(c)} active={category === c} onPress={() => setCategory(category === c ? null : c)} />
-              ))}
-            </View>
-          </View>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>CATEGORY</Text>
+                <View style={styles.chips}>
+                  {CATEGORIES.map((c) => (
+                    <Chip key={c} text={label(c)} active={category === c} onPress={() => setCategory(category === c ? null : c)} />
+                  ))}
+                </View>
+              </View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>SEASON</Text>
-            <View style={styles.chips}>
-              {SEASONS.map((s) => (
-                <Chip key={s} text={label(s)} active={season === s} onPress={() => setSeason(season === s ? null : s)} />
-              ))}
-            </View>
-          </View>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>SEASON</Text>
+                <View style={styles.chips}>
+                  {SEASONS.map((s) => (
+                    <Chip key={s} text={label(s)} active={season === s} onPress={() => setSeason(season === s ? null : s)} />
+                  ))}
+                </View>
+              </View>
+            </Glass>
+          </Animated.View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>COLOR{colorName ? ` · ${colorName.toUpperCase()}` : ''}</Text>
-            <View style={styles.swatches}>
-              {SWATCHES.map((s) => {
-                const selected = hex === s;
-                return (
-                  <Pressable
-                    key={s}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${hexToColorName(s)} ${s}`}
-                    accessibilityState={{ selected }}
-                    onPress={() => setHexInput(s)}
-                    style={[styles.swatch, { backgroundColor: s }, selected && styles.swatchSelected]}
+          <Animated.View entering={enter(3)}>
+            <Glass style={styles.card}>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>COLOR{colorName ? ` · ${colorName.toUpperCase()}` : ''}</Text>
+                <View style={styles.swatches}>
+                  {SWATCHES.map((s) => {
+                    const selected = hex === s;
+                    return (
+                      <PressableScale
+                        key={s}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${hexToColorName(s)} ${s}`}
+                        accessibilityState={{ selected }}
+                        onPress={() => setHexInput(s)}
+                        pressedScale={0.85}
+                        style={[styles.swatch, { backgroundColor: s }, selected && styles.swatchSelected]}>
+                        {null}
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+                <View style={styles.hexRow}>
+                  <View style={[styles.hexPreview, { backgroundColor: hex && hexValid ? hex : 'transparent' }]} />
+                  <TextInput
+                    value={hexInput}
+                    onChangeText={setHexInput}
+                    placeholder="#RRGGBB"
+                    placeholderTextColor={colors.inkSoft}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={7}
+                    accessibilityLabel="Color hex code"
+                    style={[input, styles.hexInput]}
                   />
-                );
-              })}
-            </View>
-            <View style={styles.hexRow}>
-              <View style={[styles.hexPreview, { backgroundColor: hex && hexValid ? hex : 'transparent' }]} />
-              <TextInput
-                value={hexInput}
-                onChangeText={setHexInput}
-                placeholder="#RRGGBB"
-                placeholderTextColor={colors.inkSoft}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={7}
-                accessibilityLabel="Color hex code"
-                style={[styles.input, styles.hexInput]}
-              />
-              {hex !== '' && (
-                <Pressable accessibilityRole="button" onPress={() => setHexInput('')} hitSlop={8}>
-                  <Text style={styles.clear}>Clear</Text>
-                </Pressable>
-              )}
-            </View>
-            {!hexValid && <Text style={styles.error}>Use 6 hex digits, like #1A2B3C.</Text>}
+                  {hex !== '' && (
+                    <Pressable accessibilityRole="button" onPress={() => setHexInput('')} hitSlop={8}>
+                      <Text style={textStyles.back}>Clear</Text>
+                    </Pressable>
+                  )}
+                </View>
+                {!hexValid && <Text style={textStyles.error}>Use 6 hex digits, like #1A2B3C.</Text>}
+                <Button
+                  label="Auto-detect color"
+                  variant="secondary"
+                  size="sm"
+                  onPress={detectColor}
+                  loading={detecting}
+                  disabled={busy}
+                />
+                {colorNote && <Text style={styles.note}>{colorNote}</Text>}
+              </View>
+            </Glass>
+          </Animated.View>
+
+          {error && <Text style={textStyles.error}>{error}</Text>}
+
+          <Animated.View entering={enter(4)} style={styles.actions}>
+            <Button label="Save" onPress={save} loading={busy} />
             <Pressable
               accessibilityRole="button"
-              onPress={detectColor}
-              disabled={detecting || busy}
-              style={[styles.bgButton, (detecting || busy) && styles.disabled]}>
-              {detecting ? (
-                <ActivityIndicator color={colors.ink} />
-              ) : (
-                <Text style={styles.bgButtonText}>Auto-detect color</Text>
-              )}
+              onPress={() => setConfirmDelete(true)}
+              disabled={busy}
+              style={styles.delete}>
+              <Text style={styles.deleteText}>Delete item</Text>
             </Pressable>
-            {colorNote && <Text style={styles.note}>{colorNote}</Text>}
-          </View>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            accessibilityRole="button"
-            onPress={save}
-            disabled={busy}
-            style={[styles.save, busy && styles.disabled]}>
-            {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveText}>Save</Text>}
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setConfirmDelete(true)} disabled={busy} style={styles.delete}>
-            <Text style={styles.deleteText}>Delete item</Text>
-          </Pressable>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -315,92 +328,80 @@ export default function ItemScreen() {
         onConfirm={remove}
         onCancel={() => setConfirmDelete(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 function Chip({ text, active, onPress }: { text: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
+      pressedScale={0.92}
       style={[styles.chip, active && styles.chipActive]}>
+      {active ? (
+        <LinearGradient
+          colors={gradients.brand}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{text}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  center: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   flex: { flex: 1 },
-  body: { padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing.xl * 2 },
-  back: { color: colors.inkSoft, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  center: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  body: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+    padding: spacing.xl,
+    gap: spacing.lg,
+    paddingBottom: spacing.xxl * 2,
+  },
   photo: { aspectRatio: 1 },
   image: { flex: 1 },
+  card: { padding: spacing.xl, gap: spacing.lg },
   field: { gap: spacing.sm },
-  label: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: fontSizes.label, letterSpacing: 1.2 },
-  input: {
-    height: 52,
-    borderRadius: radius.thumb,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.pill,
-    color: colors.ink,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.md,
-  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
-    height: 36,
+    height: 38,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     borderRadius: radius.pill,
     backgroundColor: colors.chip,
     borderWidth: 1,
     borderColor: colors.hover,
+    overflow: 'hidden',
   },
-  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipActive: { borderColor: 'transparent' },
   chipText: { color: colors.ink, fontFamily: fonts.medium, fontSize: fontSizes.sm },
-  chipTextActive: { color: colors.white },
+  chipTextActive: { color: colors.white, fontFamily: fonts.semibold },
   swatches: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   swatch: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.outline,
   },
-  swatchSelected: { borderWidth: 3, borderColor: colors.ink },
+  swatchSelected: { borderWidth: 3, borderColor: colors.accentDeep },
   hexRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   hexPreview: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: radius.thumb,
     borderWidth: 1,
     borderColor: colors.outline,
   },
   hexInput: { flex: 1, fontFamily: fonts.semibold, letterSpacing: 1 },
-  clear: { color: colors.inkSoft, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
-  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: fontSizes.sm },
-  save: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-  },
-  disabled: { opacity: 0.4 },
-  bgButton: {
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.pill,
-  },
-  bgButtonText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
   note: { color: colors.inkSoft, fontFamily: fonts.medium, fontSize: fontSizes.xs },
-  saveText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.md },
+  actions: { gap: spacing.sm },
   delete: { height: 46, alignItems: 'center', justifyContent: 'center' },
   deleteText: { color: colors.danger, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
 });

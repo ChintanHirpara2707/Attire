@@ -13,12 +13,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
+import { Button } from '../../../components/Button';
 import { Glass } from '../../../components/Glass';
+import { Screen } from '../../../components/Screen';
 import { autoDetectColor, createItem, removeBackground } from '../../../services/items';
 import { useProfileStore } from '../../../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../../../theme/tokens';
+import { enter } from '../../../theme/motion';
+import { colors, input, spacing, textStyles } from '../../../theme/tokens';
+
 
 type Picked = { uri: string; width: number; height: number };
 
@@ -89,36 +93,45 @@ export default function AddItemScreen() {
     router.back();
   };
 
+
   return (
-    <SafeAreaView style={styles.root}>
+    <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
           <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={8}>
-            <Text style={styles.back}>‹ Closet</Text>
+            <Text style={textStyles.back}>‹ Closet</Text>
           </Pressable>
-          <Text style={styles.title}>Add clothes</Text>
+          <Animated.View entering={enter(0)} style={styles.headingBlock}>
+            <Text style={textStyles.title} accessibilityRole="header">
+              Add clothes
+            </Text>
+            <Text style={textStyles.subtitle}>Snap it, and we&apos;ll do the rest.</Text>
+          </Animated.View>
 
-          <Glass style={styles.preview}>
-            {photo ? (
-              <Image source={{ uri: photo.uri }} style={styles.image} resizeMode="contain" accessibilityLabel="Selected photo" />
-            ) : (
-              <View style={styles.placeholder}>
-                <Text style={styles.muted}>Take a photo or pick one from your gallery.</Text>
-              </View>
-            )}
-          </Glass>
+          <Animated.View entering={enter(1)}>
+            <Glass style={styles.preview}>
+              {photo ? (
+                <Image
+                  source={{ uri: photo.uri }}
+                  style={styles.image}
+                  resizeMode="contain"
+                  accessibilityLabel="Selected photo"
+                />
+              ) : (
+                <View style={styles.placeholder}>
+                  <Text style={[textStyles.muted, styles.center]}>Take a photo or pick one from your gallery.</Text>
+                </View>
+              )}
+            </Glass>
+          </Animated.View>
 
-          <View style={styles.row}>
-            <Pressable accessibilityRole="button" onPress={() => pick('camera')} disabled={busy} style={[styles.button, styles.secondary]}>
-              <Text style={styles.secondaryText}>Camera</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => pick('gallery')} disabled={busy} style={[styles.button, styles.secondary]}>
-              <Text style={styles.secondaryText}>Gallery</Text>
-            </Pressable>
-          </View>
+          <Animated.View entering={enter(2)} style={styles.row}>
+            <Button label="Camera" variant="secondary" onPress={() => pick('camera')} disabled={busy} style={styles.flex} />
+            <Button label="Gallery" variant="secondary" onPress={() => pick('gallery')} disabled={busy} style={styles.flex} />
+          </Animated.View>
 
-          <View style={styles.field}>
-            <Text style={styles.label}>NAME (OPTIONAL)</Text>
+          <Animated.View entering={enter(3)} style={styles.field}>
+            <Text style={textStyles.label}>NAME (OPTIONAL)</Text>
             <TextInput
               value={name}
               onChangeText={setName}
@@ -126,110 +139,43 @@ export default function AddItemScreen() {
               placeholderTextColor={colors.inkSoft}
               maxLength={60}
               accessibilityLabel="Name, optional"
-              style={styles.input}
+              style={input}
             />
-          </View>
+          </Animated.View>
 
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && <Text style={textStyles.error}>{error}</Text>}
 
-          <Pressable
-            accessibilityRole="button"
-            onPress={save}
-            disabled={!photo || busy}
-            style={[styles.save, (!photo || busy) && styles.disabled]}>
-            {busy ? (
-              <View style={styles.busyRow}>
-                <ActivityIndicator color={colors.white} />
-                <Text style={styles.saveText}>{status}</Text>
+          <Animated.View entering={enter(4)} style={styles.saveBlock}>
+            <Button label="Save" onPress={save} disabled={!photo} loading={busy} />
+            {busy && (
+              <View style={styles.busyRow} accessibilityLiveRegion="polite">
+                <ActivityIndicator color={colors.accent} size="small" />
+                <Text style={textStyles.muted}>{status}</Text>
               </View>
-            ) : (
-              <Text style={styles.saveText}>Save</Text>
             )}
-          </Pressable>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
+  center: { textAlign: 'center' },
   body: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     padding: spacing.xl,
     gap: spacing.lg,
   },
-  back: {
-    color: colors.inkSoft,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
-  },
-  title: {
-    color: colors.ink,
-    fontFamily: fonts.black,
-    fontSize: 32,
-    letterSpacing: -1,
-  },
-  preview: {
-    aspectRatio: 3 / 4,
-  },
-  image: {
-    flex: 1,
-  },
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  muted: {
-    color: colors.inkSoft,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.sm,
-    textAlign: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  button: {
-    flex: 1,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-  },
-  secondary: { backgroundColor: colors.pill },
-  secondaryText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  headingBlock: { gap: spacing.xs },
+  preview: { aspectRatio: 3 / 4 },
+  image: { flex: 1 },
+  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  row: { flexDirection: 'row', gap: spacing.sm },
   field: { gap: spacing.sm },
-  label: {
-    color: colors.inkSoft,
-    fontFamily: fonts.bold,
-    fontSize: fontSizes.label,
-    letterSpacing: 1.2,
-  },
-  input: {
-    height: 52,
-    borderRadius: radius.thumb,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.pill,
-    color: colors.ink,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.md,
-  },
-  error: {
-    color: colors.danger,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.sm,
-  },
-  save: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-  },
-  disabled: { opacity: 0.4 },
-  busyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  saveText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.md },
+  saveBlock: { gap: spacing.sm },
+  busyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
 });

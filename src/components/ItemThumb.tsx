@@ -1,6 +1,7 @@
-import { Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, fonts, fontSizes, radius } from '../theme/tokens';
+import { PressableScale } from './PressableScale';
 
 type Props = {
   url?: string;
@@ -11,7 +12,8 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-// A clothing photo tile. Pressable only when onPress is given.
+// A clothing photo tile. Pressable (with spring + haptic) only when onPress is
+// given, so it can sit inside another pressable without nesting buttons.
 export function ItemThumb({ url, label, size = 84, selected, onPress, style }: Props) {
   const body = (
     <View style={[styles.tile, { width: size, height: size * (4 / 3) }, selected && styles.selected, style]}>
@@ -26,13 +28,14 @@ export function ItemThumb({ url, label, size = 84, selected, onPress, style }: P
   );
   if (!onPress) return body;
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: !!selected }}
-      onPress={onPress}>
+      onPress={onPress}
+      pressedScale={0.93}>
       {body}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -42,12 +45,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.thumb,
     backgroundColor: colors.thumb,
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   selected: {
-    borderColor: colors.ink,
+    borderWidth: 3,
+    borderColor: colors.accent,
   },
   image: {
     width: '100%',

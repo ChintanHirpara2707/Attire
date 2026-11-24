@@ -11,10 +11,13 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
+import { Button } from '../components/Button';
+import { Glass } from '../components/Glass';
+import { Screen } from '../components/Screen';
 import { ensureSession } from '../services/supabase';
-import { colors, fonts, fontSizes, radius, spacing } from '../theme/tokens';
+import { colors, fonts, fontSizes, spacing, textStyles } from '../theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -62,18 +65,21 @@ export default function RootLayout() {
 
   if (session === 'error') {
     return (
-      <View style={styles.center}>
-        <Text style={styles.message}>Could not connect. Check your internet and try again.</Text>
-        {errorMessage && (
-          <Text selectable style={styles.detail}>
-            {errorMessage}
+      <Screen style={styles.center}>
+        <Glass style={styles.card}>
+          <Text style={styles.heading} accessibilityRole="header">
+            Can&apos;t reach your wardrobe
           </Text>
-        )}
-        <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
-          <Text style={styles.retryText}>Try again</Text>
-        </Pressable>
+          <Text style={styles.message}>Could not connect. Check your internet and try again.</Text>
+          {errorMessage && (
+            <Text selectable style={styles.detail}>
+              {errorMessage}
+            </Text>
+          )}
+          <Button label="Try again" onPress={retry} />
+        </Glass>
         <StatusBar style="dark" />
-      </View>
+      </Screen>
     );
   }
 
@@ -93,12 +99,19 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   center: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.lg,
     padding: spacing.xl,
-    backgroundColor: colors.background,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  heading: {
+    ...textStyles.heading,
+    textAlign: 'center',
   },
   message: {
     color: colors.ink,
@@ -111,16 +124,5 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: fontSizes.xs,
     textAlign: 'center',
-  },
-  retry: {
-    backgroundColor: colors.ink,
-    borderRadius: radius.pill,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  retryText: {
-    color: colors.white,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
   },
 });

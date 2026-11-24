@@ -1,35 +1,24 @@
-import { BlurTargetView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState, type ComponentRef } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, FadeInUp, ReduceMotion } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 
-import { AuroraBackground } from '../components/AuroraBackground';
+import { FloatingButton, useFloatingButtonSpace } from '../components/FloatingButton';
 import { Glass } from '../components/Glass';
 import { Logo } from '../components/Logo';
 import { PressableScale } from '../components/PressableScale';
 import { ProfilePrompt } from '../components/ProfilePrompt';
+import { Screen } from '../components/Screen';
 import type { ProfileSummary } from '../services/profiles';
 import { useProfileStore } from '../store/profileStore';
-import { colors, fonts, fontSizes, gradients, motion, radius, sizes, spacing, springs } from '../theme/tokens';
+import { enter } from '../theme/motion';
+import { colors, fonts, fontSizes, gradients, radius, sizes, spacing } from '../theme/tokens';
 
 type Pending = { profile: ProfileSummary; action: 'open' | 'delete' } | null;
 
-const PILL_HEIGHT = 56;
-
-// Entrance: fade up with a soft spring, staggered. Skipped with "reduce motion".
-const enter = (index: number) =>
-  FadeInDown.delay(120 + index * motion.staggerMs)
-    .springify()
-    .damping(springs.gentle.damping)
-    .stiffness(springs.gentle.stiffness)
-    .reduceMotion(ReduceMotion.System);
-
 export default function ProfilesScreen() {
-  const backdrop = useRef<ComponentRef<typeof View>>(null);
-  const insets = useSafeAreaInsets();
+  const bottomSpace = useFloatingButtonSpace();
   const { profiles, loading, error, load, select, remove } = useProfileStore();
   const [pending, setPending] = useState<Pending>(null);
 
@@ -66,20 +55,16 @@ export default function ProfilesScreen() {
   };
 
   return (
-    <View style={styles.root}>
-      {/* Android blurs only what is inside the BlurTargetView, so the aurora lives there. */}
-      <BlurTargetView ref={backdrop} style={StyleSheet.absoluteFill}>
-        <AuroraBackground />
-      </BlurTargetView>
-
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <Screen
+      edges={['top', 'left', 'right']}
+      overlay={<FloatingButton label="Add profile" onPress={() => router.push('/add-profile')} />}>
         <FlatList
           data={profiles}
           keyExtractor={(p) => p.id}
           contentContainerStyle={[
             styles.list,
             // Leave room so the floating pill never covers the last card.
-            { paddingBottom: PILL_HEIGHT + insets.bottom + spacing.xxl * 2 },
+            { paddingBottom: bottomSpace },
           ]}
           ListHeaderComponent={
             <View style={styles.header}>
@@ -112,7 +97,7 @@ export default function ProfilesScreen() {
             <Animated.View entering={enter(index + 2)}>
               {/* Open and Delete are siblings, not nested: on web a button
                   inside a button is invalid HTML and React reports an error. */}
-              <Glass blurTarget={backdrop} style={styles.card}>
+              <Glass style={styles.card}>
                 <PressableScale
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${item.name}${item.hasPin ? ', PIN protected' : ''}`}
@@ -146,30 +131,6 @@ export default function ProfilesScreen() {
             </Animated.View>
           )}
         />
-      </SafeAreaView>
-
-      {/* Floating "Add profile" pill */}
-      <Animated.View
-        entering={FadeInUp.delay(320).springify().reduceMotion(ReduceMotion.System)}
-        style={[styles.pillWrap, { bottom: insets.bottom + spacing.xl }]}
-        pointerEvents="box-none">
-        <PressableScale
-          accessibilityRole="button"
-          accessibilityLabel="Add profile"
-          onPress={() => router.push('/add-profile')}
-          pressedScale={0.94}
-          style={styles.pillShadow}>
-          <LinearGradient
-            colors={gradients.brand}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.pill}>
-            <Text style={styles.pillPlus}>+</Text>
-            <Text style={styles.pillText}>Add profile</Text>
-          </LinearGradient>
-        </PressableScale>
-      </Animated.View>
-
       <ProfilePrompt
         key={pending ? `${pending.action}-${pending.profile.id}` : 'closed'}
         visible={pending !== null}
@@ -184,18 +145,11 @@ export default function ProfilesScreen() {
         onConfirm={confirm}
         onCancel={() => setPending(null)}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-  },
   list: {
     width: '100%',
     maxWidth: 560, // keeps cards a comfortable width on web/tablets
@@ -290,38 +244,5 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontFamily: fonts.medium,
     fontSize: fontSizes.xs,
-  },
-  pillWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  pillShadow: {
-    borderRadius: radius.pill,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  pill: {
-    height: PILL_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xxl,
-    borderRadius: radius.pill,
-  },
-  pillPlus: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 24,
-    lineHeight: 26,
-  },
-  pillText: {
-    color: colors.white,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.md,
   },
 });

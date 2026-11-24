@@ -1,20 +1,15 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
+import { Button } from '../components/Button';
+import { Glass } from '../components/Glass';
+import { Screen } from '../components/Screen';
 import { NAME_MAX, validateName, validatePin } from '../services/profiles';
 import { useProfileStore } from '../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../theme/tokens';
+import { enter } from '../theme/motion';
+import { colors, input, spacing, textStyles } from '../theme/tokens';
 
 export default function AddProfileScreen() {
   const add = useProfileStore((s) => s.add);
@@ -41,128 +36,77 @@ export default function AddProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.body}>
-        <Text style={styles.title}>New profile</Text>
+    <Screen>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+          <Animated.View entering={enter(0)} style={styles.headingBlock}>
+            <Text style={textStyles.title} accessibilityRole="header">
+              New profile
+            </Text>
+            <Text style={textStyles.subtitle}>A wardrobe of their own.</Text>
+          </Animated.View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>NAME</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Maya"
-            placeholderTextColor={colors.inkSoft}
-            maxLength={NAME_MAX}
-            autoFocus
-            autoCapitalize="words"
-            returnKeyType="next"
-            accessibilityLabel="Name"
-            style={styles.input}
-          />
-        </View>
+          <Animated.View entering={enter(1)}>
+            <Glass style={styles.card}>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>NAME</Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Maya"
+                  placeholderTextColor={colors.inkSoft}
+                  maxLength={NAME_MAX}
+                  autoFocus
+                  autoCapitalize="words"
+                  returnKeyType="next"
+                  accessibilityLabel="Name"
+                  style={input}
+                />
+              </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>PIN (OPTIONAL)</Text>
-          <TextInput
-            value={pin}
-            onChangeText={(t) => setPin(t.replace(/\D/g, '').slice(0, 4))}
-            placeholder="4 digits"
-            placeholderTextColor={colors.inkSoft}
-            keyboardType="number-pad"
-            secureTextEntry
-            maxLength={4}
-            onSubmitEditing={save}
-            accessibilityLabel="PIN, optional"
-            style={[styles.input, styles.pin]}
-          />
-          <Text style={styles.hint}>Leave empty to open this profile without a PIN.</Text>
-        </View>
+              <View style={styles.field}>
+                <Text style={textStyles.label}>PIN (OPTIONAL)</Text>
+                <TextInput
+                  value={pin}
+                  onChangeText={(t) => setPin(t.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="4 digits"
+                  placeholderTextColor={colors.inkSoft}
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  maxLength={4}
+                  onSubmitEditing={save}
+                  accessibilityLabel="PIN, optional"
+                  style={[input, styles.pin]}
+                />
+                <Text style={textStyles.muted}>Leave empty to open this profile without a PIN.</Text>
+              </View>
 
-        {error && <Text style={styles.error}>{error}</Text>}
+              {error && <Text style={textStyles.error}>{error}</Text>}
+            </Glass>
+          </Animated.View>
 
-        <View style={styles.row}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()} style={[styles.button, styles.secondary]}>
-            <Text style={styles.secondaryText}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={save}
-            disabled={busy}
-            style={[styles.button, styles.primary]}>
-            {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.primaryText}>Save</Text>}
-          </Pressable>
-        </View>
+          <Animated.View entering={enter(2)} style={styles.row}>
+            <Button label="Cancel" variant="secondary" onPress={() => router.back()} style={styles.flex} />
+            <Button label="Save" onPress={save} loading={busy} style={styles.flex} />
+          </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  flex: { flex: 1 },
   body: {
-    flex: 1,
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     padding: spacing.xl,
-    gap: spacing.lg,
+    gap: spacing.xl,
   },
-  title: {
-    color: colors.ink,
-    fontFamily: fonts.black,
-    fontSize: 32,
-    letterSpacing: -1,
-  },
-  field: {
-    gap: spacing.sm,
-  },
-  label: {
-    color: colors.inkSoft,
-    fontFamily: fonts.bold,
-    fontSize: fontSizes.label,
-    letterSpacing: 1.2,
-  },
-  input: {
-    height: 52,
-    borderRadius: radius.thumb,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.pill,
-    color: colors.ink,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.md,
-  },
-  pin: {
-    fontFamily: fonts.semibold,
-    fontSize: 20,
-    letterSpacing: 8,
-  },
-  hint: {
-    color: colors.inkSoft,
-    fontFamily: fonts.regular,
-    fontSize: fontSizes.xs,
-  },
-  error: {
-    color: colors.danger,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
-  button: {
-    minWidth: 104,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.lg,
-  },
-  primary: { backgroundColor: colors.ink },
-  secondary: { backgroundColor: colors.chip },
-  primaryText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
-  secondaryText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  headingBlock: { gap: spacing.xs, marginTop: spacing.md },
+  card: { padding: spacing.xl, gap: spacing.lg },
+  field: { gap: spacing.sm },
+  pin: { fontSize: 20, letterSpacing: 8 },
+  row: { flexDirection: 'row', gap: spacing.sm },
 });
