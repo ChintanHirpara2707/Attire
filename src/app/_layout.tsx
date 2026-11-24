@@ -9,26 +9,59 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../theme/tokens';
+import { ensureSession } from '../services/supabase';
+import { colors, fonts, fontSizes, radius, spacing } from '../theme/tokens';
 
 SplashScreen.preventAutoHideAsync();
 
+type SessionState = 'loading' | 'ready' | 'error';
+
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_900Black,
   });
+  const [session, setSession] = useState<SessionState>('loading');
+
+  const connect = useCallback(() => {
+    ensureSession()
+      .then(() => setSession('ready'))
+      .catch(() => setSession('error'));
+  }, []);
+
+  useEffect(connect, [connect]);
+
+  const retry = () => {
+    setSession('loading');
+    connect();
+  };
+
+  const fontsDone = fontsLoaded || fontError !== null;
+  const ready = fontsDone && session !== 'loading';
 
   useEffect(() => {
-    if (loaded || error) SplashScreen.hideAsync();
-  }, [loaded, error]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (!loaded && !error) return null;
+  if (!ready) return null;
+
+  if (session === 'error') {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.message}>Could not connect. Check your internet and try again.</Text>
+        <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
+          <Text style={styles.retryText}>Try again</Text>
+        </Pressable>
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
 
   return (
     <>
@@ -36,9 +69,38 @@ export default function RootLayout() {
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
-        }}
-      />
+        }}>
+        <Stack.Screen name="add-profile" options={{ presentation: 'modal' }} />
+      </Stack>
       <StatusBar style="dark" />
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    padding: spacing.xl,
+    backgroundColor: colors.background,
+  },
+  message: {
+    color: colors.ink,
+    fontFamily: fonts.medium,
+    fontSize: fontSizes.md,
+    textAlign: 'center',
+  },
+  retry: {
+    backgroundColor: colors.ink,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  retryText: {
+    color: colors.white,
+    fontFamily: fonts.semibold,
+    fontSize: fontSizes.sm,
+  },
+});
