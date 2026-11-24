@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Glass } from '../components/Glass';
+import { Logo } from '../components/Logo';
 import { ProfilePrompt } from '../components/ProfilePrompt';
 import type { ProfileSummary } from '../services/profiles';
 import { useProfileStore } from '../store/profileStore';
@@ -63,8 +64,8 @@ export default function ProfilesScreen() {
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             <View style={styles.header}>
-              <Text style={styles.title}>Attire</Text>
-              <Text style={styles.tagline}>Wear your aura.</Text>
+              {/* The logo already shows the name and tagline. */}
+              <Logo />
               <Text style={styles.section}>WHO&apos;S GETTING DRESSED?</Text>
             </View>
           }
@@ -164,17 +165,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl * 2,
     marginBottom: spacing.md,
     gap: spacing.xs,
-  },
-  title: {
-    color: colors.ink,
-    fontFamily: fonts.black,
-    fontSize: 44,
-    letterSpacing: -1.5,
-  },
-  tagline: {
-    color: colors.inkSoft,
-    fontFamily: fonts.medium,
-    fontSize: fontSizes.md,
   },
   section: {
     marginTop: spacing.xl,
