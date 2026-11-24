@@ -32,3 +32,4 @@ npx expo start · npx supabase db push · npx supabase functions deploy remove-b
 - [x] Scaffold: Expo Router in src/app, theme tokens (src/theme/tokens.ts), Inter font, Glass component
 - [x] Supabase foundation: 0001_init.sql (tables, RLS, private "clothes" bucket), src/services/supabase.ts (client + ensureSession)
 - [x] Profiles: list, add (name + optional PIN, salted SHA-256), open with PIN, delete (incl. storage files) — not yet device-tested
+- [x] Add clothes: camera/gallery, resized JPEG upload to clothes/<user>/<profile>/<item>-original.jpg, closet grid with signed URLs — not yet device-tested

@@ -28,7 +28,15 @@
       "expo-sqlite",
       "expo-status-bar",
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attire uses your photos so you can add clothes to your closet.",
+          "cameraPermission": "Attire uses the camera so you can photograph clothes for your closet.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }
