@@ -80,6 +80,20 @@ export default function ClosetScreen() {
                 <Text style={styles.addText}>+ Add</Text>
               </Pressable>
             </View>
+            <View style={styles.navRow}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/profile/${id}/builder`)}
+                style={styles.navButton}>
+                <Text style={styles.navText}>Build outfit</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push(`/profile/${id}/outfits`)}
+                style={styles.navButton}>
+                <Text style={styles.navText}>Outfits</Text>
+              </Pressable>
+            </View>
           </View>
         }
         ListEmptyComponent={
@@ -171,6 +185,23 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: colors.white,
+    fontFamily: fonts.semibold,
+    fontSize: fontSizes.sm,
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  navButton: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.pill,
+  },
+  navText: {
+    color: colors.ink,
     fontFamily: fonts.semibold,
     fontSize: fontSizes.sm,
   },
