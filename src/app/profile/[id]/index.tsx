@@ -100,16 +100,17 @@ export default function ClosetScreen() {
           const url = item.original_path ? closet?.urls[item.original_path] : undefined;
           return (
             <Glass style={styles.cell}>
-              {url ? (
-                <Image source={{ uri: url }} style={styles.image} accessibilityLabel={item.name || 'Clothing item'} />
-              ) : (
-                <View style={styles.image} />
-              )}
-              {item.name ? (
-                <Text style={styles.cellName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Edit ${item.name || 'clothing item'}`}
+                onPress={() => router.push(`/profile/${id}/item/${item.id}`)}>
+                {url ? <Image source={{ uri: url }} style={styles.image} /> : <View style={styles.image} />}
+                {item.name ? (
+                  <Text style={styles.cellName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                ) : null}
+              </Pressable>
             </Glass>
           );
         }}

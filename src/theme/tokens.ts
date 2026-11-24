@@ -15,6 +15,7 @@ export const colors = {
   shadow: 'rgba(40,30,20,0.45)',
   scrim: 'rgba(40,30,20,0.25)',
   danger: '#a3271b',
+  outline: 'rgba(0,0,0,0.12)',
 } as const;
 
 // Frosted glass material (.glass), rendered by src/components/Glass.tsx.

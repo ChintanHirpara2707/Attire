@@ -79,6 +79,66 @@ export async function listItems(profileId: string): Promise<Item[]> {
   return data;
 }
 
+export const CATEGORIES = ['top', 'bottom', 'shoes', 'outerwear', 'accessory'] as const;
+export const SEASONS = ['summer', 'winter', 'all'] as const;
+export type Category = (typeof CATEGORIES)[number];
+export type Season = (typeof SEASONS)[number];
+
+const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
+export function isValidHex(hex: string): boolean {
+  return HEX_PATTERN.test(hex);
+}
+
+export type ItemChanges = {
+  name: string;
+  category: Category | null;
+  season: Season | null;
+  // Saved together: both set or both null.
+  color: { hex: string; name: string } | null;
+};
+
+export async function getItem(itemId: string): Promise<Item> {
+  const { data, error } = await supabase.from('items').select('*').eq('id', itemId).single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateItem(itemId: string, changes: ItemChanges): Promise<Item> {
+  const { name, category, season, color } = changes;
+  if (color && !isValidHex(color.hex)) throw new Error('Color must be a hex value like #1A2B3C.');
+  if (category && !CATEGORIES.includes(category)) throw new Error('Unknown category.');
+  if (season && !SEASONS.includes(season)) throw new Error('Unknown season.');
+
+  const { data, error } = await supabase
+    .from('items')
+    .update({
+      name: name.trim(),
+      category,
+      season,
+      color_hex: color ? color.hex.toUpperCase() : null,
+      color_name: color ? color.name : null,
+    })
+    .eq('id', itemId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteItem(item: Pick<Item, 'id' | 'original_path' | 'image_path'>): Promise<void> {
+  const { error } = await supabase.from('items').delete().eq('id', item.id);
+  if (error) throw error;
+
+  // Row is gone first so the item never shows half-deleted; a failed file
+  // removal only leaves an unreachable file behind.
+  const paths = [item.original_path, item.image_path].filter((p): p is string => !!p);
+  if (paths.length > 0) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove(paths);
+    if (storageError) console.warn('Item deleted but its photo could not be removed:', storageError.message);
+  }
+}
+
 // Returns a map of storage path -> temporary URL (valid for one hour).
 export async function getSignedUrls(paths: string[]): Promise<Record<string, string>> {
   if (paths.length === 0) return {};
