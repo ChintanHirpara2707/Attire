@@ -30,7 +30,7 @@ export default function ClosetScreen() {
       (async () => {
         try {
           const items = await listItems(id);
-          const paths = items.flatMap((i) => (i.original_path ? [i.original_path] : []));
+          const paths = items.flatMap((i) => { const p = i.image_path ?? i.original_path; return p ? [p] : []; });
           const urls = await getSignedUrls(paths);
           if (active) {
             setCloset({ items, urls });
@@ -111,7 +111,8 @@ export default function ClosetScreen() {
           )
         }
         renderItem={({ item }) => {
-          const url = item.original_path ? closet?.urls[item.original_path] : undefined;
+          const path = item.image_path ?? item.original_path;
+          const url = path ? closet?.urls[path] : undefined;
           return (
             <Glass style={styles.cell}>
               <Pressable

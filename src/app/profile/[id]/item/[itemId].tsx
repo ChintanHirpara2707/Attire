@@ -23,6 +23,8 @@ import {
   getItem,
   getSignedUrls,
   isValidHex,
+  removeBackground,
+  restoreOriginal,
   updateItem,
   type Category,
   type Item,
@@ -57,6 +59,7 @@ export default function ItemScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [bgBusy, setBgBusy] = useState(false);
 
   useEffect(() => {
     if (!allowed) return;
@@ -109,6 +112,25 @@ export default function ItemScreen() {
     }
   };
 
+  // Remove background, or restore the original if a cutout exists.
+  const toggleBackground = async () => {
+    if (!loaded) return;
+    setBgBusy(true);
+    setError(null);
+    try {
+      const item = loaded.item.image_path
+        ? await restoreOriginal(loaded.item)
+        : await removeBackground(loaded.item);
+      const path = item.image_path ?? item.original_path;
+      const urls = path ? await getSignedUrls([path]) : {};
+      setLoaded({ item, photoUrl: path ? (urls[path] ?? null) : null });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not change the background.');
+    } finally {
+      setBgBusy(false);
+    }
+  };
+
   const remove = async (): Promise<string | null> => {
     if (!loaded) return null;
     try {
@@ -147,6 +169,21 @@ export default function ItemScreen() {
               />
             ) : null}
           </Glass>
+          {loaded.item.original_path && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={toggleBackground}
+              disabled={bgBusy || busy}
+              style={[styles.bgButton, (bgBusy || busy) && styles.disabled]}>
+              {bgBusy ? (
+                <ActivityIndicator color={colors.ink} />
+              ) : (
+                <Text style={styles.bgButtonText}>
+                  {loaded.item.image_path ? 'Restore original' : 'Remove background'}
+                </Text>
+              )}
+            </Pressable>
+          )}
 
           <View style={styles.field}>
             <Text style={styles.label}>NAME</Text>
@@ -319,6 +356,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
   },
   disabled: { opacity: 0.4 },
+  bgButton: {
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    backgroundColor: colors.pill,
+  },
+  bgButtonText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
   saveText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.md },
   delete: { height: 46, alignItems: 'center', justifyContent: 'center' },
   deleteText: { color: colors.danger, fontFamily: fonts.semibold, fontSize: fontSizes.sm },

@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { File } from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
@@ -137,6 +137,104 @@ export async function deleteItem(item: Pick<Item, 'id' | 'original_path' | 'imag
     const { error: storageError } = await supabase.storage.from(BUCKET).remove(paths);
     if (storageError) console.warn('Item deleted but its photo could not be removed:', storageError.message);
   }
+}
+
+export class BackgroundRemovalUnavailableError extends Error {
+  constructor() {
+    super('Background removal needs a development build on iOS 16+ or Android.');
+    this.name = 'BackgroundRemovalUnavailableError';
+  }
+}
+
+type RemoveBgImage = typeof import('rn-remove-image-bg').removeBgImage;
+
+// Temporary files only; failures to clean up are harmless.
+function deleteQuietly(uri: string) {
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    // ignore
+  }
+}
+
+// Loaded on first use so Expo Go and web never touch the native module.
+function loadRemover(): RemoveBgImage {
+  if (Platform.OS === 'web') throw new BackgroundRemovalUnavailableError();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const lib = require('rn-remove-image-bg') as { removeBgImage: RemoveBgImage };
+    return lib.removeBgImage;
+  } catch {
+    throw new BackgroundRemovalUnavailableError();
+  }
+}
+
+// Makes a transparent cutout of the original on the device (Vision on iOS,
+// ML Kit subject segmentation on Android) and stores it as <item>-cutout.png.
+// The original file is never changed; the cutout's path goes in image_path.
+export async function removeBackground(item: Pick<Item, 'id'>): Promise<Item> {
+  const removeBgImage = loadRemover();
+
+  const current = await getItem(item.id);
+  const originalPath = current.original_path;
+  if (!originalPath) throw new Error('This item has no original photo.');
+  const cutoutPath = `${originalPath.slice(0, originalPath.lastIndexOf('/'))}/${current.id}-cutout.png`;
+  if (cutoutPath === originalPath) throw new Error('Refusing to overwrite the original photo.');
+
+  // Work on a local copy of the original.
+  const urls = await getSignedUrls([originalPath]);
+  const url = urls[originalPath];
+  if (!url) throw new Error('Could not download the original photo.');
+  const local = await File.downloadFileAsync(url, new File(Paths.cache, `${current.id}-original.jpg`), {
+    idempotent: true,
+  });
+
+  let cutoutUri: string;
+  try {
+    cutoutUri = await removeBgImage(local.uri, { maxDimension: MAX_SIDE, format: 'PNG', useCache: false });
+  } catch (e) {
+    // Native module missing (e.g. Expo Go) shows up as an error here too.
+    if (e instanceof Error && /nitro|hybrid ?object|not (be )?found|linked/i.test(e.message)) {
+      throw new BackgroundRemovalUnavailableError();
+    }
+    throw e;
+  } finally {
+    deleteQuietly(local.uri);
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(cutoutPath, await readBytes(cutoutUri), { contentType: 'image/png', upsert: true });
+  deleteQuietly(cutoutUri);
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase
+    .from('items')
+    .update({ image_path: cutoutPath })
+    .eq('id', current.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// Goes back to the original photo and deletes the cutout file.
+export async function restoreOriginal(item: Pick<Item, 'id' | 'image_path' | 'original_path'>): Promise<Item> {
+  const { data, error } = await supabase
+    .from('items')
+    .update({ image_path: null })
+    .eq('id', item.id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  const cutout = item.image_path;
+  if (cutout && cutout !== item.original_path) {
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove([cutout]);
+    if (storageError) console.warn('Original restored but the cutout file could not be removed:', storageError.message);
+  }
+  return data;
 }
 
 // Returns a map of storage path -> temporary URL (valid for one hour).

@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Glass } from '../../../components/Glass';
-import { createItem } from '../../../services/items';
+import { createItem, removeBackground } from '../../../services/items';
 import { useProfileStore } from '../../../store/profileStore';
 import { colors, fonts, fontSizes, radius, spacing } from '../../../theme/tokens';
 
@@ -34,6 +34,7 @@ export default function AddItemScreen() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('Saving…');
 
   if (activeProfileId !== id) return <Redirect href="/" />;
 
@@ -63,14 +64,24 @@ export default function AddItemScreen() {
   const save = async () => {
     if (!photo) return;
     setBusy(true);
+    setStatus('Saving…');
     setError(null);
+    let item;
     try {
-      await createItem({ profileId: id, ...photo, name });
-      router.back();
+      item = await createItem({ profileId: id, ...photo, name });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save the item.');
       setBusy(false);
+      return;
     }
+    // The item is saved; a cutout is a bonus. If it fails, the original is kept.
+    setStatus('Removing background…');
+    try {
+      await removeBackground(item);
+    } catch (e) {
+      console.warn('Background removal skipped:', e instanceof Error ? e.message : e);
+    }
+    router.back();
   };
 
   return (
@@ -121,7 +132,14 @@ export default function AddItemScreen() {
             onPress={save}
             disabled={!photo || busy}
             style={[styles.save, (!photo || busy) && styles.disabled]}>
-            {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveText}>Save</Text>}
+            {busy ? (
+              <View style={styles.busyRow}>
+                <ActivityIndicator color={colors.white} />
+                <Text style={styles.saveText}>{status}</Text>
+              </View>
+            ) : (
+              <Text style={styles.saveText}>Save</Text>
+            )}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -207,5 +225,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
   },
   disabled: { opacity: 0.4 },
+  busyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   saveText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.md },
 });
