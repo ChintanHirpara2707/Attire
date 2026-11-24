@@ -4,7 +4,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
 import { hexToColorName } from '../utils/colorName';
-import { detectColorHex } from '../utils/detectColor';
+import { ColorDetectionUnavailableError, detectColorHex } from '../utils/detectColor';
 import type { Item } from './database.types';
 import { supabase } from './supabase';
 
@@ -173,6 +173,7 @@ function loadRemover(): RemoveBgImage {
 }
 
 // Downloads the original JPEG to a temporary local file (caller deletes it).
+// Only used by background removal, which needs a local file path.
 async function downloadOriginal(originalPath: string, itemId: string): Promise<File> {
   const urls = await getSignedUrls([originalPath]);
   const url = urls[originalPath];
@@ -187,16 +188,29 @@ export type DetectedColor = { hex: string; name: string };
 // Detects the main color from the ORIGINAL photo (never the transparent cutout).
 // Returns null if detection isn't available (Expo Go, web) or found nothing.
 // Does not save anything.
+// Reads straight from a signed URL; no expo-file-system involved.
 export async function detectItemColor(item: Pick<Item, 'id'>): Promise<DetectedColor | null> {
-  const current = await getItem(item.id);
-  if (!current.original_path) return null;
-  const local = await downloadOriginal(current.original_path, current.id);
   try {
-    const hex = await detectColorHex(local.uri);
+    const current = await getItem(item.id);
+    if (!current.original_path) return null;
+    const url = (await getSignedUrls([current.original_path]))[current.original_path];
+    if (!url) throw new Error('Could not open the original photo.');
+    const hex = await detectColorHex(url);
     return hex ? { hex, name: hexToColorName(hex) } : null;
-  } finally {
-    deleteQuietly(local.uri);
+  } catch (e) {
+    // Expo Go / web: the screen shows "needs a development build" for null.
+    if (e instanceof ColorDetectionUnavailableError) return null;
+    logStackOnce('detectItemColor', e);
+    throw e;
   }
+}
+
+let stackLogged = false;
+// Logs the first unexpected failure's full stack so the failing line is visible.
+function logStackOnce(where: string, e: unknown) {
+  if (stackLogged) return;
+  stackLogged = true;
+  console.warn(`[${where}] failed:`, e instanceof Error ? (e.stack ?? e.message) : e);
 }
 
 // Detects and saves the color, but only if the item has no color yet, so a
