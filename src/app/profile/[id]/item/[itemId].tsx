@@ -20,6 +20,7 @@ import {
   CATEGORIES,
   SEASONS,
   deleteItem,
+  detectItemColor,
   getItem,
   getSignedUrls,
   isValidHex,
@@ -60,6 +61,8 @@ export default function ItemScreen() {
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [bgBusy, setBgBusy] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [colorNote, setColorNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!allowed) return;
@@ -109,6 +112,26 @@ export default function ItemScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.');
       setBusy(false);
+    }
+  };
+
+  // Fills the picker with the detected color; nothing is saved until Save.
+  const detectColor = async () => {
+    if (!loaded) return;
+    setDetecting(true);
+    setColorNote(null);
+    try {
+      const found = await detectItemColor(loaded.item);
+      if (found) {
+        setHexInput(found.hex);
+        setColorNote(`Detected ${found.name}. Tap Save to keep it.`);
+      } else {
+        setColorNote('Could not detect a color here (needs a development build). Pick one above.');
+      }
+    } catch (e) {
+      setColorNote(e instanceof Error ? e.message : 'Could not detect a color.');
+    } finally {
+      setDetecting(false);
     }
   };
 
@@ -253,6 +276,18 @@ export default function ItemScreen() {
               )}
             </View>
             {!hexValid && <Text style={styles.error}>Use 6 hex digits, like #1A2B3C.</Text>}
+            <Pressable
+              accessibilityRole="button"
+              onPress={detectColor}
+              disabled={detecting || busy}
+              style={[styles.bgButton, (detecting || busy) && styles.disabled]}>
+              {detecting ? (
+                <ActivityIndicator color={colors.ink} />
+              ) : (
+                <Text style={styles.bgButtonText}>Auto-detect color</Text>
+              )}
+            </Pressable>
+            {colorNote && <Text style={styles.note}>{colorNote}</Text>}
           </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
@@ -364,6 +399,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.pill,
   },
   bgButtonText: { color: colors.ink, fontFamily: fonts.semibold, fontSize: fontSizes.sm },
+  note: { color: colors.inkSoft, fontFamily: fonts.medium, fontSize: fontSizes.xs },
   saveText: { color: colors.white, fontFamily: fonts.semibold, fontSize: fontSizes.md },
   delete: { height: 46, alignItems: 'center', justifyContent: 'center' },
   deleteText: { color: colors.danger, fontFamily: fonts.semibold, fontSize: fontSizes.sm },

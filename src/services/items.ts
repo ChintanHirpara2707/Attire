@@ -3,6 +3,8 @@ import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
+import { hexToColorName } from '../utils/colorName';
+import { detectColorHex } from '../utils/detectColor';
 import type { Item } from './database.types';
 import { supabase } from './supabase';
 
@@ -170,6 +172,50 @@ function loadRemover(): RemoveBgImage {
   }
 }
 
+// Downloads the original JPEG to a temporary local file (caller deletes it).
+async function downloadOriginal(originalPath: string, itemId: string): Promise<File> {
+  const urls = await getSignedUrls([originalPath]);
+  const url = urls[originalPath];
+  if (!url) throw new Error('Could not download the original photo.');
+  // Unique name so color detection and background removal can run at the same time.
+  const name = `${itemId}-${Crypto.randomUUID()}-original.jpg`;
+  return File.downloadFileAsync(url, new File(Paths.cache, name), { idempotent: true });
+}
+
+export type DetectedColor = { hex: string; name: string };
+
+// Detects the main color from the ORIGINAL photo (never the transparent cutout).
+// Returns null if detection isn't available (Expo Go, web) or found nothing.
+// Does not save anything.
+export async function detectItemColor(item: Pick<Item, 'id'>): Promise<DetectedColor | null> {
+  const current = await getItem(item.id);
+  if (!current.original_path) return null;
+  const local = await downloadOriginal(current.original_path, current.id);
+  try {
+    const hex = await detectColorHex(local.uri);
+    return hex ? { hex, name: hexToColorName(hex) } : null;
+  } finally {
+    deleteQuietly(local.uri);
+  }
+}
+
+// Detects and saves the color, but only if the item has no color yet, so a
+// color the user picked by hand is never replaced. Returns the updated item,
+// or null if nothing was saved.
+export async function autoDetectColor(item: Pick<Item, 'id'>): Promise<Item | null> {
+  const color = await detectItemColor(item);
+  if (!color) return null;
+  const { data, error } = await supabase
+    .from('items')
+    .update({ color_hex: color.hex, color_name: color.name })
+    .eq('id', item.id)
+    .is('color_hex', null)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 // Makes a transparent cutout of the original on the device (Vision on iOS,
 // ML Kit subject segmentation on Android) and stores it as <item>-cutout.png.
 // The original file is never changed; the cutout's path goes in image_path.
@@ -182,13 +228,7 @@ export async function removeBackground(item: Pick<Item, 'id'>): Promise<Item> {
   const cutoutPath = `${originalPath.slice(0, originalPath.lastIndexOf('/'))}/${current.id}-cutout.png`;
   if (cutoutPath === originalPath) throw new Error('Refusing to overwrite the original photo.');
 
-  // Work on a local copy of the original.
-  const urls = await getSignedUrls([originalPath]);
-  const url = urls[originalPath];
-  if (!url) throw new Error('Could not download the original photo.');
-  const local = await File.downloadFileAsync(url, new File(Paths.cache, `${current.id}-original.jpg`), {
-    idempotent: true,
-  });
+  const local = await downloadOriginal(originalPath, current.id);
 
   let cutoutUri: string;
   try {

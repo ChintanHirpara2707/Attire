@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Glass } from '../../../components/Glass';
-import { createItem, removeBackground } from '../../../services/items';
+import { autoDetectColor, createItem, removeBackground } from '../../../services/items';
 import { useProfileStore } from '../../../store/profileStore';
 import { colors, fonts, fontSizes, radius, spacing } from '../../../theme/tokens';
 
@@ -74,7 +74,12 @@ export default function AddItemScreen() {
       setBusy(false);
       return;
     }
-    // The item is saved; a cutout is a bonus. If it fails, the original is kept.
+    // The item is saved; color and cutout are bonuses. Color detection runs in
+    // the background from the original photo and any failure is ignored.
+    autoDetectColor(item).catch((e) =>
+      console.warn('Color detection skipped:', e instanceof Error ? e.message : e),
+    );
+    // If background removal fails, the original is kept.
     setStatus('Removing background…');
     try {
       await removeBackground(item);
