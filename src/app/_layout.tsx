@@ -6,6 +6,7 @@ import {
   Inter_900Black,
   useFonts,
 } from '@expo-google-fonts/inter';
+import { Fraunces_400Regular_Italic, Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -26,6 +27,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
     Inter_900Black,
+    Fraunces_600SemiBold,
+    Fraunces_400Regular_Italic,
   });
   const [session, setSession] = useState<SessionState>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

@@ -1,20 +1,35 @@
 import { BlurTargetView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState, type ComponentRef } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeIn, FadeInDown, FadeInUp, ReduceMotion } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AuroraBackground } from '../components/AuroraBackground';
 import { Glass } from '../components/Glass';
 import { Logo } from '../components/Logo';
+import { PressableScale } from '../components/PressableScale';
 import { ProfilePrompt } from '../components/ProfilePrompt';
 import type { ProfileSummary } from '../services/profiles';
 import { useProfileStore } from '../store/profileStore';
-import { colors, fonts, fontSizes, radius, spacing } from '../theme/tokens';
+import { colors, fonts, fontSizes, gradients, motion, radius, sizes, spacing, springs } from '../theme/tokens';
 
 type Pending = { profile: ProfileSummary; action: 'open' | 'delete' } | null;
 
+const PILL_HEIGHT = 56;
+
+// Entrance: fade up with a soft spring, staggered. Skipped with "reduce motion".
+const enter = (index: number) =>
+  FadeInDown.delay(120 + index * motion.staggerMs)
+    .springify()
+    .damping(springs.gentle.damping)
+    .stiffness(springs.gentle.stiffness)
+    .reduceMotion(ReduceMotion.System);
+
 export default function ProfilesScreen() {
   const backdrop = useRef<ComponentRef<typeof View>>(null);
+  const insets = useSafeAreaInsets();
   const { profiles, loading, error, load, select, remove } = useProfileStore();
   const [pending, setPending] = useState<Pending>(null);
 
@@ -52,71 +67,109 @@ export default function ProfilesScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Android blurs only what is inside the BlurTargetView, so the aurora lives there. */}
       <BlurTargetView ref={backdrop} style={StyleSheet.absoluteFill}>
-        <Text style={styles.ghost} numberOfLines={1}>
-          FIT
-        </Text>
+        <AuroraBackground />
       </BlurTargetView>
-      <SafeAreaView style={styles.container}>
+
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <FlatList
           data={profiles}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[
+            styles.list,
+            // Leave room so the floating pill never covers the last card.
+            { paddingBottom: PILL_HEIGHT + insets.bottom + spacing.xxl * 2 },
+          ]}
           ListHeaderComponent={
             <View style={styles.header}>
-              {/* The logo already shows the name and tagline. */}
-              <Logo />
-              <Text style={styles.section}>WHO&apos;S GETTING DRESSED?</Text>
+              <Animated.View entering={FadeIn.duration(700).reduceMotion(ReduceMotion.System)}>
+                {/* The logo already shows the name and tagline. */}
+                <Logo width="62%" maxWidth={260} />
+              </Animated.View>
+              <Animated.View entering={enter(1)} style={styles.headingBlock}>
+                <Text style={styles.heading} accessibilityRole="header">
+                  Who&apos;s getting dressed?
+                </Text>
+                <Text style={styles.subheading}>Choose a wardrobe to open.</Text>
+              </Animated.View>
             </View>
           }
           ListEmptyComponent={
-            loading ? (
-              <ActivityIndicator color={colors.ink} />
-            ) : error ? (
-              <Pressable accessibilityRole="button" onPress={load}>
-                <Text style={styles.muted}>{error} Tap to retry.</Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.muted}>No profiles yet. Add one to start your wardrobe.</Text>
-            )
+            <Animated.View entering={enter(2)} style={styles.empty}>
+              {loading ? (
+                <ActivityIndicator color={colors.accent} />
+              ) : error ? (
+                <Pressable accessibilityRole="button" onPress={load}>
+                  <Text style={styles.muted}>{error} Tap to retry.</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.muted}>No profiles yet. Add one to start your wardrobe.</Text>
+              )}
+            </Animated.View>
           }
-          renderItem={({ item }) => (
-            <Glass blurTarget={backdrop} style={styles.card}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${item.name}${item.hasPin ? ', PIN protected' : ''}`}
-                onPress={() => open(item)}
-                style={styles.cardMain}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={styles.cardText}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  {item.hasPin && <Text style={styles.pinTag}>PIN</Text>}
-                </View>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Delete ${item.name}`}
-                onPress={() => setPending({ profile: item, action: 'delete' })}
-                hitSlop={8}
-                style={styles.delete}>
-                <Text style={styles.deleteText}>Delete</Text>
-              </Pressable>
-            </Glass>
+          renderItem={({ item, index }) => (
+            <Animated.View entering={enter(index + 2)}>
+              {/* Open and Delete are siblings, not nested: on web a button
+                  inside a button is invalid HTML and React reports an error. */}
+              <Glass blurTarget={backdrop} style={styles.card}>
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${item.name}${item.hasPin ? ', PIN protected' : ''}`}
+                  onPress={() => open(item)}
+                  pressedScale={0.97}
+                  containerStyle={styles.cardPress}
+                  style={styles.cardMain}>
+                  <LinearGradient
+                    colors={gradients.brand}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatar}>
+                    <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
+                  </LinearGradient>
+                  <View style={styles.cardText}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    {item.hasPin && <Text style={styles.pinTag}>PIN</Text>}
+                  </View>
+                </PressableScale>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${item.name}`}
+                  onPress={() => setPending({ profile: item, action: 'delete' })}
+                  hitSlop={10}
+                  style={styles.delete}>
+                  <Text style={styles.deleteText}>Delete</Text>
+                </Pressable>
+              </Glass>
+            </Animated.View>
           )}
-          ListFooterComponent={
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/add-profile')}
-              style={styles.add}>
-              <Text style={styles.addText}>+ Add profile</Text>
-            </Pressable>
-          }
         />
       </SafeAreaView>
+
+      {/* Floating "Add profile" pill */}
+      <Animated.View
+        entering={FadeInUp.delay(320).springify().reduceMotion(ReduceMotion.System)}
+        style={[styles.pillWrap, { bottom: insets.bottom + spacing.xl }]}
+        pointerEvents="box-none">
+        <PressableScale
+          accessibilityRole="button"
+          accessibilityLabel="Add profile"
+          onPress={() => router.push('/add-profile')}
+          pressedScale={0.94}
+          style={styles.pillShadow}>
+          <LinearGradient
+            colors={gradients.brand}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 1, y: 0.5 }}
+            style={styles.pill}>
+            <Text style={styles.pillPlus}>+</Text>
+            <Text style={styles.pillText}>Add profile</Text>
+          </LinearGradient>
+        </PressableScale>
+      </Animated.View>
+
       <ProfilePrompt
         key={pending ? `${pending.action}-${pending.profile.id}` : 'closed'}
         visible={pending !== null}
@@ -144,64 +197,68 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
+    width: '100%',
+    maxWidth: 560, // keeps cards a comfortable width on web/tablets
+    alignSelf: 'center',
     paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.xl * 2,
     gap: spacing.md,
   },
-  ghost: {
-    position: 'absolute',
-    alignSelf: 'center',
-    top: '18%',
-    fontFamily: fonts.black,
-    fontSize: 180,
-    lineHeight: 180,
-    letterSpacing: -7,
-    color: colors.ghostText,
-    textShadowColor: colors.hover,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 0,
-  },
   header: {
-    marginTop: spacing.xl * 2,
-    marginBottom: spacing.md,
+    marginTop: spacing.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.xl,
+  },
+  headingBlock: {
     gap: spacing.xs,
   },
-  section: {
-    marginTop: spacing.xl,
+  heading: {
+    color: colors.ink,
+    fontFamily: fonts.display,
+    fontSize: fontSizes.display,
+    lineHeight: fontSizes.display * 1.15,
+    letterSpacing: -0.5,
+  },
+  subheading: {
     color: colors.inkSoft,
-    fontFamily: fonts.bold,
-    fontSize: fontSizes.label,
-    letterSpacing: 1.2,
+    fontFamily: fonts.displayItalic,
+    fontSize: fontSizes.md,
+  },
+  empty: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
   },
   muted: {
     color: colors.inkSoft,
     fontFamily: fonts.medium,
     fontSize: fontSizes.sm,
+    textAlign: 'center',
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: spacing.lg,
   },
-  cardMain: {
+  cardPress: {
     flex: 1,
+  },
+  cardMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.md,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.thumb,
+    width: sizes.avatar,
+    height: sizes.avatar,
+    borderRadius: sizes.avatar / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.pill,
   },
   avatarText: {
-    color: colors.ink,
-    fontFamily: fonts.bold,
-    fontSize: 20,
+    color: colors.white,
+    fontFamily: fonts.display,
+    fontSize: 22,
   },
   cardText: {
     flex: 1,
@@ -212,11 +269,11 @@ const styles = StyleSheet.create({
   name: {
     flexShrink: 1,
     color: colors.ink,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.md,
+    fontFamily: fonts.display,
+    fontSize: fontSizes.lg,
   },
   pinTag: {
-    color: colors.inkSoft,
+    color: colors.accentDeep,
     fontFamily: fonts.bold,
     fontSize: fontSizes.label,
     letterSpacing: 1.2,
@@ -231,18 +288,38 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: colors.danger,
-    fontFamily: fonts.semibold,
-    fontSize: fontSizes.sm,
+    fontFamily: fonts.medium,
+    fontSize: fontSizes.xs,
   },
-  add: {
-    marginTop: spacing.md,
-    height: 52,
+  pillWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
   },
-  addText: {
+  pillShadow: {
+    borderRadius: radius.pill,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  pill: {
+    height: PILL_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xxl,
+    borderRadius: radius.pill,
+  },
+  pillPlus: {
+    color: colors.white,
+    fontFamily: fonts.display,
+    fontSize: 24,
+    lineHeight: 26,
+  },
+  pillText: {
     color: colors.white,
     fontFamily: fonts.semibold,
     fontSize: fontSizes.md,
